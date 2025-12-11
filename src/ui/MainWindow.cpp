@@ -50,7 +50,7 @@ int MainWindow::Run(HINSTANCE hInstance, int nCmdShow) {
     INITCOMMONCONTROLSEX icex = {sizeof(INITCOMMONCONTROLSEX), ICC_LISTVIEW_CLASSES | ICC_BAR_CLASSES};
     InitCommonControlsEx(&icex);
 
-    const wchar_t CLASS_NAME[] = L"FileManagerClass";
+    const wchar_t CLASS_NAME[] = L"FileExploderClass";
     WNDCLASSW wc = {};
     wc.lpfnWndProc = WindowProc;
     wc.hInstance = hInstance;
@@ -60,7 +60,7 @@ int MainWindow::Run(HINSTANCE hInstance, int nCmdShow) {
     RegisterClassW(&wc);
 
     int asmVer = GetCoreVersion();
-    std::wstring title = L"Refactored FM (ASM v" + std::to_wstring(asmVer) + L")";
+    std::wstring title = L"File Exploder";
 
     HWND hwnd = CreateWindowExW(0, CLASS_NAME, title.c_str(), WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, NULL, NULL, hInstance, NULL);
