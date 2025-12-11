@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include <commctrl.h>
+#include <objbase.h>
 
 FileList MainWindow::fileList;
 HWND MainWindow::hStatusBar;
@@ -10,7 +11,7 @@ LRESULT CALLBACK MainWindow::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPA
     switch (uMsg) {
         case WM_CREATE: {
             fileList.Create(hwnd, ((LPCREATESTRUCT)lParam)->hInstance);
-
+            
             hStatusBar = CreateWindowExW(0, STATUSCLASSNAME, NULL,
                 WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP,
                 0, 0, 0, 0, hwnd, (HMENU)2, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
@@ -31,9 +32,14 @@ LRESULT CALLBACK MainWindow::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPA
 
         case WM_NOTIFY: {
             LPNMHDR lpnmh = (LPNMHDR)lParam;
-            if (lpnmh->hwndFrom == fileList.GetHandle() && lpnmh->code == NM_DBLCLK) {
-                LPNMITEMACTIVATE item = (LPNMITEMACTIVATE)lParam;
-                if (item->iItem != -1) fileList.Navigate(item->iItem);
+            if (lpnmh->hwndFrom == fileList.GetHandle()) {
+                if (lpnmh->code == NM_DBLCLK) {
+                    LPNMITEMACTIVATE item = (LPNMITEMACTIVATE)lParam;
+                    if (item->iItem != -1) fileList.Navigate(item->iItem);
+                }
+                else if (lpnmh->code == NM_RCLICK) {
+                    fileList.OnRightClick();
+                }
             }
             return 0;
         }
@@ -60,7 +66,7 @@ int MainWindow::Run(HINSTANCE hInstance, int nCmdShow) {
     RegisterClassW(&wc);
 
     int asmVer = GetCoreVersion();
-    std::wstring title = L"File Exploder";
+    std::wstring title = L"File Exploder (ASM v" + std::to_wstring(asmVer) + L")";
 
     HWND hwnd = CreateWindowExW(0, CLASS_NAME, title.c_str(), WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, NULL, NULL, hInstance, NULL);

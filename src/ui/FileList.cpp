@@ -1,6 +1,7 @@
 #include "FileList.h"
 #include "sys/FileSystem.h"
 #include <shellapi.h>
+#include <vector>
 
 void FileList::Create(HWND parent, HINSTANCE instance) {
     hInst = instance;
@@ -36,6 +37,12 @@ void FileList::Resize(int width, int height) {
     if (hListView) MoveWindow(hListView, 0, 0, width, height, TRUE);
 }
 
+std::wstring FileList::GetItemText(int index) {
+    wchar_t buffer[1024];
+    ListView_GetItemText(hListView, index, 0, buffer, 1024);
+    return std::wstring(buffer);
+}
+
 void FileList::Load(const std::wstring& path) {
     ListView_DeleteAllItems(hListView);
     currentDirectory = path;
@@ -56,21 +63,80 @@ void FileList::Load(const std::wstring& path) {
         LVITEMW lvItem = {0};
         lvItem.mask = LVIF_TEXT | LVIF_IMAGE;
         lvItem.iItem = index++;
-
+        
         std::wstring displayName = file.name;
         if (file.isDirectory) displayName = L"[" + displayName + L"]";
-
+        
         lvItem.pszText = const_cast<LPWSTR>(displayName.c_str());
         lvItem.iImage = file.iconIndex;
-
+        
         ListView_InsertItem(hListView, &lvItem);
     }
 }
 
+void FileList::DeleteItem(int index) {
+    std::wstring filename = GetItemText(index);
+    if (filename == L"[..]") return;
+
+    std::wstring fullPath = currentDirectory;
+    if (fullPath.back() != L'\\') fullPath += L"\\";
+    
+    if (filename.front() == L'[') {
+        fullPath += filename.substr(1, filename.length() - 2);
+    } else {
+        fullPath += filename;
+    }
+
+    fullPath.push_back(L'\0'); 
+
+    SHFILEOPSTRUCTW fileOp = {0};
+    fileOp.hwnd = hListView;
+    fileOp.wFunc = FO_DELETE;
+    fileOp.pFrom = fullPath.c_str();
+    fileOp.fFlags = FOF_ALLOWUNDO;
+
+    if (SHFileOperationW(&fileOp) == 0 && !fileOp.fAnyOperationsAborted) {
+        Load(currentDirectory);
+    }
+}
+
+void FileList::OnRightClick() {
+    POINT pt;
+    GetCursorPos(&pt);
+    
+    POINT ptClient = pt;
+    ScreenToClient(hListView, &ptClient);
+
+    LVHITTESTINFO hitInfo = {0};
+    hitInfo.pt = ptClient;
+    ListView_HitTest(hListView, &hitInfo);
+
+    if (hitInfo.iItem != -1) {
+        ListView_SetItemState(hListView, hitInfo.iItem, 
+            LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+
+        HMENU hMenu = CreatePopupMenu();
+        AppendMenuW(hMenu, MF_STRING, ACTION_OPEN, L"Open");
+        AppendMenuW(hMenu, MF_SEPARATOR, 0, NULL);
+        AppendMenuW(hMenu, MF_STRING, ACTION_DELETE, L"Delete");
+
+        int selection = TrackPopupMenu(hMenu, 
+            TPM_RETURNCMD | TPM_RIGHTBUTTON, 
+            pt.x, pt.y, 
+            0, hListView, NULL
+        );
+
+        DestroyMenu(hMenu);
+
+        switch (selection) {
+            case ACTION_OPEN: Navigate(hitInfo.iItem); break;
+            case ACTION_DELETE: DeleteItem(hitInfo.iItem); break;
+        }
+    }
+}
+
 void FileList::Navigate(int index) {
-    wchar_t buffer[1024];
-    ListView_GetItemText(hListView, index, 0, buffer, 1024);
-    std::wstring itemText = buffer;
+    std::wstring itemText = GetItemText(index);
 
     if (itemText == L"[..]") {
         size_t lastSlash = currentDirectory.find_last_of(L"\\");
@@ -78,14 +144,14 @@ void FileList::Navigate(int index) {
             currentDirectory = currentDirectory.substr(0, lastSlash);
         else 
             currentDirectory = currentDirectory.substr(0, 3);
-
+        
         Load(currentDirectory);
         return;
     }
 
     std::wstring path = currentDirectory;
     if (path.back() != L'\\') path += L"\\";
-
+    
     if (itemText.front() == L'[') {
         path += itemText.substr(1, itemText.length() - 2);
         Load(path);
