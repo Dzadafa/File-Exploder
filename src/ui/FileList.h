@@ -11,7 +11,8 @@ private:
 
     enum MenuActions {
         ACTION_OPEN = 1,
-        ACTION_DELETE = 2
+        ACTION_DELETE = 2,
+        ACTION_PROPERTIES = 3
     };
 
 public:
@@ -27,5 +28,7 @@ public:
 private:
     void SetupImageList();
     std::wstring GetItemText(int index);
+    std::wstring GetPathFromItem(int index);
     void DeleteItem(int index);
+    void ShowProperties(int index);
 };
