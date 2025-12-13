@@ -9,17 +9,28 @@ private:
     HINSTANCE hInst;
     std::wstring currentDirectory;
 
+    enum MenuActions {
+        ACTION_OPEN = 1,
+        ACTION_DELETE = 2,
+        ACTION_PROPERTIES = 3,
+        ACTION_TERMINAL = 4
+    };
+
 public:
     void Create(HWND parent, HINSTANCE instance);
     void Resize(int width, int height);
     void Load(const std::wstring& path);
     void Navigate(int index);
-    
+    void OnRightClick();
+
     HWND GetHandle() const { return hListView; }
     std::wstring GetCurrentPath() const { return currentDirectory; }
-    int GetFileCount();
-    int GetFolderCount();
 
 private:
     void SetupImageList();
+    std::wstring GetItemText(int index);
+    std::wstring GetPathFromItem(int index);
+    void DeleteItem(int index);
+    void ShowProperties(int index);
+    void OpenTerminal(int index);
 };
