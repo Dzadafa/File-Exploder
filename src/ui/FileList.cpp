@@ -45,8 +45,15 @@ std::wstring FileList::GetItemText(int index) {
 }
 
 std::wstring FileList::GetPathFromItem(int index) {
+    if (index == -1) return currentDirectory;
+
     std::wstring filename = GetItemText(index);
-    if (filename == L"[..]") return L"";
+    if (filename == L"[..]") {
+        size_t lastSlash = currentDirectory.find_last_of(L"\\");
+        if (lastSlash != std::wstring::npos && lastSlash > 2)
+            return currentDirectory.substr(0, lastSlash);
+        return currentDirectory.substr(0, 3);
+    }
 
     std::wstring fullPath = currentDirectory;
     if (fullPath.back() != L'\\') fullPath += L"\\";
@@ -123,6 +130,20 @@ void FileList::ShowProperties(int index) {
     }
 }
 
+void FileList::OpenTerminal(int index) {
+    std::wstring targetDir = currentDirectory;
+
+    if (index != -1) {
+        std::wstring itemPath = GetPathFromItem(index);
+        DWORD attrs = GetFileAttributesW(itemPath.c_str());
+        if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+            targetDir = itemPath;
+        }
+    }
+
+    ShellExecuteW(NULL, L"open", L"cmd.exe", NULL, targetDir.c_str(), SW_SHOWNORMAL);
+}
+
 void FileList::OnRightClick() {
     POINT pt;
     GetCursorPos(&pt);
@@ -134,33 +155,40 @@ void FileList::OnRightClick() {
     hitInfo.pt = ptClient;
     ListView_HitTest(hListView, &hitInfo);
 
-    if (hitInfo.iItem != -1) {
-        ListView_SetItemState(hListView, hitInfo.iItem, 
+    HMENU hMenu = CreatePopupMenu();
+    int itemClicked = hitInfo.iItem;
+
+    if (itemClicked != -1) {
+        ListView_SetItemState(hListView, itemClicked, 
             LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
 
-        HMENU hMenu = CreatePopupMenu();
         AppendMenuW(hMenu, MF_STRING, ACTION_OPEN, L"Open");
         AppendMenuW(hMenu, MF_STRING, ACTION_PROPERTIES, L"Properties");
+        AppendMenuW(hMenu, MF_STRING, ACTION_TERMINAL, L"Open Terminal Here");
         AppendMenuW(hMenu, MF_SEPARATOR, 0, NULL);
         AppendMenuW(hMenu, MF_STRING, ACTION_DELETE, L"Delete");
+    } else {
+        AppendMenuW(hMenu, MF_STRING, ACTION_TERMINAL, L"Open Terminal Here");
+    }
 
-        int selection = TrackPopupMenu(hMenu, 
-            TPM_RETURNCMD | TPM_RIGHTBUTTON, 
-            pt.x, pt.y, 
-            0, hListView, NULL
-        );
+    int selection = TrackPopupMenu(hMenu, 
+        TPM_RETURNCMD | TPM_RIGHTBUTTON, 
+        pt.x, pt.y, 
+        0, hListView, NULL
+    );
 
-        DestroyMenu(hMenu);
+    DestroyMenu(hMenu);
 
-        switch (selection) {
-            case ACTION_OPEN: Navigate(hitInfo.iItem); break;
-            case ACTION_DELETE: DeleteItem(hitInfo.iItem); break;
-            case ACTION_PROPERTIES: ShowProperties(hitInfo.iItem); break;
-        }
+    switch (selection) {
+        case ACTION_OPEN: Navigate(itemClicked); break;
+        case ACTION_DELETE: DeleteItem(itemClicked); break;
+        case ACTION_PROPERTIES: ShowProperties(itemClicked); break;
+        case ACTION_TERMINAL: OpenTerminal(itemClicked); break;
     }
 }
 
 void FileList::Navigate(int index) {
+    if (index == -1) return;
     std::wstring itemText = GetItemText(index);
 
     if (itemText == L"[..]") {

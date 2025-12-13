@@ -12,7 +12,8 @@ private:
     enum MenuActions {
         ACTION_OPEN = 1,
         ACTION_DELETE = 2,
-        ACTION_PROPERTIES = 3
+        ACTION_PROPERTIES = 3,
+        ACTION_TERMINAL = 4
     };
 
 public:
@@ -31,4 +32,5 @@ private:
     std::wstring GetPathFromItem(int index);
     void DeleteItem(int index);
     void ShowProperties(int index);
+    void OpenTerminal(int index);
 };
