@@ -6,6 +6,8 @@
 class FileList {
 private:
     HWND hListView;
+    HWND hAddressBar; 
+
     HINSTANCE hInst;
     std::wstring currentDirectory;
 
@@ -17,8 +19,10 @@ private:
     };
 
 public:
-    void Create(HWND parent, HINSTANCE instance);
-    void Resize(int width, int height);
+
+    void Create(HWND parent, HINSTANCE instance, HWND addressBar);
+    void Resize(int x, int y, int width, int height); 
+
     void Load(const std::wstring& path);
     void Navigate(int index);
     void OnRightClick();

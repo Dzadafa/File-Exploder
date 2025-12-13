@@ -10,4 +10,6 @@ public:
 private:
     static FileList fileList;
     static HWND hStatusBar;
+    static HWND hAddressBar; 
+
 };

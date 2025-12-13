@@ -4,15 +4,15 @@
 #include <vector>
 #include <stdio.h>
 
-void FileList::Create(HWND parent, HINSTANCE instance) {
+void FileList::Create(HWND parent, HINSTANCE instance, HWND addressBar) {
     hInst = instance;
-    RECT rcClient;
-    GetClientRect(parent, &rcClient);
+    hAddressBar = addressBar; 
 
     hListView = CreateWindowExW(
         0, WC_LISTVIEWW, L"",
         WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_SHOWSELALWAYS | LVS_SHAREIMAGELISTS,
-        0, 0, rcClient.right, rcClient.bottom,
+        0, 0, 0, 0, 
+
         parent, (HMENU)1, hInst, NULL
     );
 
@@ -34,8 +34,8 @@ void FileList::SetupImageList() {
     ListView_SetImageList(hListView, hSystemImageList, LVSIL_SMALL);
 }
 
-void FileList::Resize(int width, int height) {
-    if (hListView) MoveWindow(hListView, 0, 0, width, height, TRUE);
+void FileList::Resize(int x, int y, int width, int height) {
+    if (hListView) MoveWindow(hListView, x, y, width, height, TRUE);
 }
 
 std::wstring FileList::GetItemText(int index) {
@@ -57,7 +57,7 @@ std::wstring FileList::GetPathFromItem(int index) {
 
     std::wstring fullPath = currentDirectory;
     if (fullPath.back() != L'\\') fullPath += L"\\";
-    
+
     if (filename.front() == L'[') {
         fullPath += filename.substr(1, filename.length() - 2);
     } else {
@@ -69,6 +69,10 @@ std::wstring FileList::GetPathFromItem(int index) {
 void FileList::Load(const std::wstring& path) {
     ListView_DeleteAllItems(hListView);
     currentDirectory = path;
+
+    if (hAddressBar) {
+        SetWindowTextW(hAddressBar, currentDirectory.c_str());
+    }
 
     int index = 0;
     if (path.length() > 3) {
@@ -86,13 +90,13 @@ void FileList::Load(const std::wstring& path) {
         LVITEMW lvItem = {0};
         lvItem.mask = LVIF_TEXT | LVIF_IMAGE;
         lvItem.iItem = index++;
-        
+
         std::wstring displayName = file.name;
         if (file.isDirectory) displayName = L"[" + displayName + L"]";
-        
+
         lvItem.pszText = const_cast<LPWSTR>(displayName.c_str());
         lvItem.iImage = file.iconIndex;
-        
+
         ListView_InsertItem(hListView, &lvItem);
     }
 }
@@ -121,7 +125,7 @@ void FileList::ShowProperties(int index) {
     WIN32_FILE_ATTRIBUTE_DATA fileInfo;
     if (GetFileAttributesExW(fullPath.c_str(), GetFileExInfoStandard, &fileInfo)) {
         unsigned long long size = ((unsigned long long)fileInfo.nFileSizeHigh << 32) | fileInfo.nFileSizeLow;
-        
+
         wchar_t msg[1024];
         swprintf(msg, 1024, L"File: %ls\n\nSize: %llu bytes\nAttributes: %lu", 
             fullPath.c_str(), size, fileInfo.dwFileAttributes);
@@ -132,7 +136,6 @@ void FileList::ShowProperties(int index) {
 
 void FileList::OpenTerminal(int index) {
     std::wstring targetDir = currentDirectory;
-
     if (index != -1) {
         std::wstring itemPath = GetPathFromItem(index);
         DWORD attrs = GetFileAttributesW(itemPath.c_str());
@@ -140,14 +143,12 @@ void FileList::OpenTerminal(int index) {
             targetDir = itemPath;
         }
     }
-
     ShellExecuteW(NULL, L"open", L"cmd.exe", NULL, targetDir.c_str(), SW_SHOWNORMAL);
 }
 
 void FileList::OnRightClick() {
     POINT pt;
     GetCursorPos(&pt);
-    
     POINT ptClient = pt;
     ScreenToClient(hListView, &ptClient);
 
