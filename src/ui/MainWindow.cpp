@@ -1,12 +1,43 @@
 #include "MainWindow.h"
 #include <commctrl.h>
 #include <objbase.h>
+#include <vector>
 
 FileList MainWindow::fileList;
 HWND MainWindow::hStatusBar;
-HWND MainWindow::hAddressBar; 
+HWND MainWindow::hAddressBar;
+WNDPROC wpOldEditProc; 
 
 extern "C" int GetCoreVersion();
+
+LRESULT CALLBACK AddressBarProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+        case WM_KEYDOWN:
+            if (wParam == VK_RETURN) {
+
+                wchar_t path[MAX_PATH];
+                GetWindowTextW(hwnd, path, MAX_PATH);
+
+                MainWindow::LoadPath(path);
+
+                return 0; 
+
+            }
+            break;
+
+        case WM_CHAR:
+            if (wParam == VK_RETURN) return 0; 
+            break;
+    }
+
+    return CallWindowProc(wpOldEditProc, hwnd, uMsg, wParam, lParam);
+}
+
+void MainWindow::LoadPath(const std::wstring& path) {
+    fileList.Load(path);
+
+    SetFocus(fileList.GetHandle());
+}
 
 LRESULT CALLBACK MainWindow::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
@@ -15,9 +46,14 @@ LRESULT CALLBACK MainWindow::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPA
             hAddressBar = CreateWindowExW(
                 WS_EX_CLIENTEDGE, L"EDIT", L"",
                 WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 
-                0, 0, 0, 0, 
-
+                0, 0, 0, 0,
                 hwnd, (HMENU)3, ((LPCREATESTRUCT)lParam)->hInstance, NULL
+            );
+
+            wpOldEditProc = (WNDPROC)SetWindowLongPtrW(
+                hAddressBar, 
+                GWLP_WNDPROC, 
+                (LONG_PTR)AddressBarProc
             );
 
             hStatusBar = CreateWindowExW(0, STATUSCLASSNAME, NULL,
@@ -40,12 +76,9 @@ LRESULT CALLBACK MainWindow::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPA
             RECT rcStatus; GetWindowRect(hStatusBar, &rcStatus);
             int statusH = rcStatus.bottom - rcStatus.top;
 
-            int addrH = 25; 
-
+            int addrH = 25;
             if (hAddressBar) MoveWindow(hAddressBar, 2, 2, width - 4, addrH, TRUE);
-
             fileList.Resize(0, addrH + 4, width, height - statusH - (addrH + 4));
-
             return 0;
         }
 
@@ -92,7 +125,6 @@ int MainWindow::Run(HINSTANCE hInstance, int nCmdShow) {
 
     if (!hwnd) return 0;
     ShowWindow(hwnd, nCmdShow);
-
     SetFocus(fileList.GetHandle());
 
     MSG msg = {};
