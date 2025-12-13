@@ -35,3 +35,16 @@ std::vector<FileEntry> FileSystem::ScanDirectory(const std::wstring& directory) 
     FindClose(hFind);
     return entries;
 }
+
+std::vector<std::wstring> FileSystem::GetDrives() {
+    std::vector<std::wstring> drives;
+    DWORD mask = GetLogicalDrives(); // Returns bitmask: Bit 0 = A, Bit 25 = Z
+
+    for (int i = 0; i < 26; ++i) {
+        if (mask & (1 << i)) {
+            wchar_t driveName[] = { (wchar_t)(L'A' + i), L':', L'\\', L'\0' };
+            drives.push_back(driveName);
+        }
+    }
+    return drives;
+}

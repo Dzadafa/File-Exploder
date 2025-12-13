@@ -15,4 +15,6 @@ class FileSystem {
 public:
     static std::vector<FileEntry> ScanDirectory(const std::wstring& directory);
     static int GetFileIconIndex(const std::wstring& path, DWORD attributes);
+
+    static std::vector<std::wstring> GetDrives();
 };
