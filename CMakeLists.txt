@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(FileExploder LANGUAGES C CXX ASM_NASM)
+project(MyFileManager LANGUAGES C CXX ASM_NASM)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -26,4 +26,4 @@ if(MINGW)
     target_link_options(${PROJECT_NAME} PRIVATE -municode)
 endif()
 
-target_link_libraries(${PROJECT_NAME} PRIVATE user32 kernel32 gdi32 shell32 comctl32 ole32)
+target_link_libraries(${PROJECT_NAME} PRIVATE user32 kernel32 gdi32 shell32 comctl32 ole32 ntdll)
