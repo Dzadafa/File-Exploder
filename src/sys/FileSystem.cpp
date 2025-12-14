@@ -58,27 +58,65 @@ std::vector<std::wstring> FileSystem::GetDrives() {
 
 std::vector<FileEntry> FileSystem::ScanDirectory(const std::wstring& directory) {
     std::vector<FileEntry> entries;
-    WIN32_FIND_DATAW findData;
-    std::wstring searchPath = directory + L"\\*";
-    
-    HANDLE hFind = FindFirstFileW(searchPath.c_str(), &findData);
-    if (hFind == INVALID_HANDLE_VALUE) return entries;
 
-    do {
-        if (wcscmp(findData.cFileName, L".") == 0 || wcscmp(findData.cFileName, L"..") == 0) continue;
+    HANDLE hDir = CreateFileW(
+        directory.c_str(),
+        FILE_LIST_DIRECTORY | SYNCHRONIZE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        NULL,
+        OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS,
+        NULL
+    );
 
-        FileEntry entry;
-        entry.name = findData.cFileName;
-        entry.isDirectory = (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
-        entry.attributes = findData.dwFileAttributes;
-        entry.fullPath = directory + L"\\" + entry.name;
-        
-        entry.iconIndex = GetFileIconIndex(entry.fullPath, entry.attributes);
+    if (hDir == INVALID_HANDLE_VALUE) return entries;
 
-        entries.push_back(entry);
+    const ULONG BUFFER_SIZE = 64 * 1024; 
+    std::vector<BYTE> buffer(BUFFER_SIZE);
 
-    } while (FindNextFileW(hFind, &findData) != 0);
+    IO_STATUS_BLOCK ioStatus;
+    NTSTATUS status;
+    bool firstCall = true;
 
-    FindClose(hFind);
+    while (true) {
+        status = NtQueryDirectoryFile(
+            hDir, NULL, NULL, NULL, &ioStatus,
+            buffer.data(), BUFFER_SIZE,
+            (FILE_INFORMATION_CLASS)FileDirectoryInformation,
+            FALSE,
+            NULL,
+            firstCall ? TRUE : FALSE
+        );
+
+        if (status == STATUS_NO_MORE_FILES) break;
+        if (status != STATUS_SUCCESS) break;
+
+        BYTE* p = buffer.data();
+        while (true) {
+            auto* info = (PMY_FILE_DIRECTORY_INFORMATION)p;
+
+            std::wstring fileName(info->FileName, info->FileNameLength / sizeof(WCHAR));
+
+            if (fileName != L"." && fileName != L"..") {
+                FileEntry entry;
+                entry.name = fileName;
+                entry.attributes = info->FileAttributes;
+                entry.isDirectory = (info->FileAttributes & FILE_ATTRIBUTE_DIRECTORY);
+                
+                entry.fullPath = directory;
+                if (entry.fullPath.back() != L'\\') entry.fullPath += L"\\";
+                entry.fullPath += fileName;
+
+                entry.iconIndex = GetFileIconIndex(entry.fullPath, entry.attributes);
+                entries.push_back(entry);
+            }
+
+            if (info->NextEntryOffset == 0) break;
+            p += info->NextEntryOffset;
+        }
+        firstCall = false;
+    }
+
+    CloseHandle(hDir);
     return entries;
 }
