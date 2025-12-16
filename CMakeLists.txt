@@ -18,6 +18,7 @@ set(SOURCES
     src/ui/MainWindow.cpp
     src/ui/FileList.cpp
     src/sys/FileSystem.cpp
+    src/sys/History.cpp
 )
 
 add_executable(${PROJECT_NAME} WIN32 ${SOURCES})
