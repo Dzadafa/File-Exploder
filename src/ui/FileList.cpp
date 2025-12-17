@@ -6,13 +6,12 @@
 
 void FileList::Create(HWND parent, HINSTANCE instance, HWND addressBar) {
     hInst = instance;
-    hAddressBar = addressBar; 
-
+    hAddressBar = addressBar;
+    
     hListView = CreateWindowExW(
         0, WC_LISTVIEWW, L"",
         WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_SHOWSELALWAYS | LVS_SHAREIMAGELISTS,
-        0, 0, 0, 0, 
-
+        0, 0, 0, 0,
         parent, (HMENU)1, hInst, NULL
     );
 
@@ -57,13 +56,27 @@ std::wstring FileList::GetPathFromItem(int index) {
 
     std::wstring fullPath = currentDirectory;
     if (fullPath.back() != L'\\') fullPath += L"\\";
-
+    
     if (filename.front() == L'[') {
         fullPath += filename.substr(1, filename.length() - 2);
     } else {
         fullPath += filename;
     }
     return fullPath;
+}
+
+std::wstring FileList::GetTarget(int index) {
+    if (index == -1) return L"";
+    std::wstring itemText = GetItemText(index);
+
+    if (itemText == L"[..]") {
+        size_t lastSlash = currentDirectory.find_last_of(L"\\");
+        if (lastSlash != std::wstring::npos && lastSlash > 2)
+            return currentDirectory.substr(0, lastSlash);
+        return currentDirectory.substr(0, 3);
+    }
+
+    return GetPathFromItem(index);
 }
 
 void FileList::Load(const std::wstring& path) {
@@ -90,13 +103,13 @@ void FileList::Load(const std::wstring& path) {
         LVITEMW lvItem = {0};
         lvItem.mask = LVIF_TEXT | LVIF_IMAGE;
         lvItem.iItem = index++;
-
+        
         std::wstring displayName = file.name;
         if (file.isDirectory) displayName = L"[" + displayName + L"]";
-
+        
         lvItem.pszText = const_cast<LPWSTR>(displayName.c_str());
         lvItem.iImage = file.iconIndex;
-
+        
         ListView_InsertItem(hListView, &lvItem);
     }
 }
@@ -125,7 +138,7 @@ void FileList::ShowProperties(int index) {
     WIN32_FILE_ATTRIBUTE_DATA fileInfo;
     if (GetFileAttributesExW(fullPath.c_str(), GetFileExInfoStandard, &fileInfo)) {
         unsigned long long size = ((unsigned long long)fileInfo.nFileSizeHigh << 32) | fileInfo.nFileSizeLow;
-
+        
         wchar_t msg[1024];
         swprintf(msg, 1024, L"File: %ls\n\nSize: %llu bytes\nAttributes: %lu", 
             fullPath.c_str(), size, fileInfo.dwFileAttributes);
@@ -181,34 +194,17 @@ void FileList::OnRightClick() {
     DestroyMenu(hMenu);
 
     switch (selection) {
-        case ACTION_OPEN: Navigate(itemClicked); break;
+        case ACTION_OPEN: {
+             NMITEMACTIVATE nm = {0};
+             nm.hdr.hwndFrom = hListView;
+             nm.hdr.idFrom = 1;
+             nm.hdr.code = NM_DBLCLK;
+             nm.iItem = itemClicked;
+             SendMessage(GetParent(hListView), WM_NOTIFY, 1, (LPARAM)&nm);
+             break;
+        }
         case ACTION_DELETE: DeleteItem(itemClicked); break;
         case ACTION_PROPERTIES: ShowProperties(itemClicked); break;
         case ACTION_TERMINAL: OpenTerminal(itemClicked); break;
-    }
-}
-
-void FileList::Navigate(int index) {
-    if (index == -1) return;
-    std::wstring itemText = GetItemText(index);
-
-    if (itemText == L"[..]") {
-        size_t lastSlash = currentDirectory.find_last_of(L"\\");
-        if (lastSlash != std::wstring::npos && lastSlash > 2)
-            currentDirectory = currentDirectory.substr(0, lastSlash);
-        else 
-            currentDirectory = currentDirectory.substr(0, 3);
-        Load(currentDirectory);
-        return;
-    }
-
-    std::wstring path = GetPathFromItem(index);
-    if (path.empty()) return;
-
-    DWORD attrs = GetFileAttributesW(path.c_str());
-    if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
-        Load(path);
-    } else {
-        ShellExecuteW(NULL, L"open", path.c_str(), NULL, NULL, SW_SHOWNORMAL);
     }
 }
